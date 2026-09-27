@@ -1,0 +1,84 @@
+# Access control: role -> permissions, marking -> permitted purposes, principals.
+# Permission grants may be glob patterns ("incident:*", "*").
+
+roles:
+  viewer:
+    - agent:reporter:run
+    - asset:read
+    - finding:read
+    - incident:read
+    - advisory:read
+  analyst:
+    - agent:reporter:run
+    - agent:triage:run
+    - asset:read
+    - finding:read
+    - incident:read
+    - advisory:read
+    - incident:write
+    - owner:notify
+  responder:
+    - agent:*:run
+    - asset:read
+    - finding:read
+    - advisory:read
+    - incident:*
+    - owner:notify
+    - credential:rotate
+    - asset:quarantine
+  incident_commander:
+    - agent:*:run
+    - asset:*
+    - finding:read
+    - advisory:read
+    - incident:*
+    - owner:notify
+    - credential:rotate
+  admin: ["*"]
+
+# Data markings. An object carrying a marking is invisible unless the principal
+# holds the clearance AND the run's purpose is permitted for that marking.
+# Unknown markings fail closed.
+markings:
+  PROD: {}                                  # any purpose
+  PII: {purposes: [incident_response]}
+  SECRET_META: {purposes: [incident_response]}
+  EXEC: {purposes: [incident_response]}
+  EXPORT_CONTROLLED: {purposes: [incident_response]}
+
+principals:
+  alice:
+    display_name: Alice (IR responder)
+    roles: [responder]
+    clearances: [PROD, PII, SECRET_META]
+    purposes: [incident_response, reporting]
+  carol:
+    display_name: Carol (incident commander)
+    roles: [incident_commander]
+    clearances: [PROD, PII, SECRET_META, EXEC, EXPORT_CONTROLLED]
+    purposes: [incident_response, reporting]
+  dave:
+    display_name: Dave (SOC analyst)
+    roles: [analyst]
+    clearances: [PROD]
+    purposes: [incident_response, reporting]
+  bob:
+    display_name: Bob (engineering manager)
+    roles: [viewer]
+    clearances: []
+    purposes: [reporting]
+
+  # Service principals for non-interactive triggers. Narrow grants, and a
+  # named human owner who is accountable for what they do.
+  svc-scanner-hook:
+    kind: service
+    owner: alice
+    roles: [analyst]
+    clearances: [PROD]
+    purposes: [incident_response]
+  svc-nightly-sweep:
+    kind: service
+    owner: carol
+    roles: [analyst]
+    clearances: [PROD, SECRET_META]
+    purposes: [incident_response]

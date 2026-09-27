@@ -7,3 +7,6 @@ __pycache__/
 venv/
 .venv/
 .streamlit/
+var/
+*.jsonl
+eval-report.json

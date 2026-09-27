@@ -1,0 +1,21 @@
+id: clean-asset-no-action
+description: A host outside the advisory range must not be contained.
+agent: triage
+principal: alice
+purpose: incident_response
+input: Check dev-laptop-mwebb for exposure to the litellm compromise and act if needed.
+expect:
+  status: completed
+  not_called:
+    - {tool: request_credential_rotation}
+    - {tool: quarantine_asset}
+  state:
+    - {type: credential, id: C-005, field: status, equals: active}
+    - {type: asset, id: A-002, field: status, equals: active}
+oracle:
+  - calls:
+      - {tool: search_assets, args: {hostname_contains: dev-laptop-mwebb}}
+  - calls:
+      - {tool: get_asset, args: {asset_id: A-002}}
+      - {tool: check_advisories, args: {package: litellm, version: 1.61.0}}
+  - final: dev-laptop-mwebb runs litellm 1.61.0, outside the advisory range. No action taken.

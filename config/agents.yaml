@@ -1,0 +1,38 @@
+# Agent definitions. An agent = prompt + model alias + allow-listed actions.
+# The actions a run actually gets are this list ∩ what the running principal
+# is permitted to do for the run's purpose.
+
+agents:
+  triage:
+    description: Investigates supply-chain findings, opens incidents, contains exposure.
+    model: local-large               # <- the one-line model swap
+    fallback_models: [local-medium, enclave-large]
+    prompt: triage.md
+    purposes: [incident_response]
+    max_steps: 16
+    actions:
+      - search_assets
+      - get_asset
+      - list_findings
+      - check_advisories
+      - get_incident
+      - open_incident
+      - update_incident_status
+      - request_credential_rotation
+      - quarantine_asset
+      - notify_owner
+
+  reporter:
+    description: Read-only summaries of incident and exposure posture.
+    model: local-medium
+    fallback_models: [local-large, enclave-large]
+    prompt: reporter.md
+    purposes: [reporting, incident_response]
+    max_steps: 8
+    cache: true                      # read-only agent: safe to cache model turns
+    actions:
+      - search_assets
+      - get_asset
+      - list_findings
+      - check_advisories
+      - get_incident

@@ -1,0 +1,63 @@
+# Model catalog. Everything is local: every entry must point at a loopback /
+# private address (or a host listed under gateway.local_only.allowed_hosts),
+# and Warden refuses to start otherwise.
+#
+# Agents reference ALIASES, never model tags.
+# Swap the model for every agent using an alias: edit `model:` here.
+# Swap it for one agent: edit its `model:` in agents.yaml, or at run time:
+#   WARDEN_MODEL_TRIAGE=local-medium python -m warden ...
+# Bring your own model: add an entry for any server that speaks OpenAI-style
+# /chat/completions with tool calling (Ollama, vLLM, llama.cpp server, LM Studio).
+#
+# Cost fields are 0: there is no per-token bill. Token usage is still metered,
+# rate-limited and budgeted, because local GPU time is the scarce resource.
+
+models:
+  # Ollama on this machine. `ollama pull qwen3:32b`
+  local-large:
+    provider: openai_compatible
+    model: qwen3:32b
+    base_url: http://127.0.0.1:11434/v1
+    max_tokens: 8000
+    params: {temperature: 0.2}
+    allowed_markings: [PROD, PII, SECRET_META, EXEC]
+
+  # Smaller/faster fallback on the same Ollama. `ollama pull qwen3:8b`
+  local-medium:
+    provider: openai_compatible
+    model: qwen3:8b
+    base_url: http://127.0.0.1:11434/v1
+    max_tokens: 8000
+    params: {temperature: 0.2}
+    allowed_markings: [PROD, PII, SECRET_META, EXEC]
+
+  # A vLLM server on an isolated inference box inside the controlled enclave.
+  # The only model cleared for EXPORT_CONTROLLED data; runs that touch such
+  # data fall through the agent's fallback chain to it automatically.
+  enclave-large:
+    provider: openai_compatible
+    model: Qwen/Qwen3-32B
+    base_url: http://10.20.0.5:8000/v1
+    api_key_env: ENCLAVE_LLM_API_KEY
+    max_tokens: 8000
+    params: {temperature: 0.2}
+    allowed_markings: [PROD, PII, SECRET_META, EXEC, EXPORT_CONTROLLED]
+
+gateway:
+  local_only:
+    enabled: true
+    allowed_hosts: []              # extra hostnames you vouch for, e.g. [inference.internal]
+  retry:
+    max_attempts: 3
+    base_delay_s: 1.0
+    max_delay_s: 15.0
+  cache:
+    max_entries: 1024
+    ttl_seconds: 3600
+  limits:
+    requests_per_minute: 30        # per (principal, model): protects the local GPU
+    max_wait_s: 30
+    default_daily_tokens: 2000000  # per agent per UTC day
+    daily_tokens_per_agent:
+      triage: 5000000
+      reporter: 1000000

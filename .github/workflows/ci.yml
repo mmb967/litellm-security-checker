@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Hosted runner: code only, no model, no data. Unit tests + oracle evals
+  # (replays each eval case's scripted trajectory through the real runtime,
+  # policy and graders, and checks the graders can fail).
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-warden.txt
+      - run: python -m pytest -q
+      - run: python -m evals.run --mode oracle --out eval-oracle.json >> "$GITHUB_STEP_SUMMARY"
+
+  # Live evals need the local model, so they run on YOUR hardware: a
+  # self-hosted runner labelled `warden-gpu` with Ollama serving the catalog's
+  # models on 127.0.0.1. Enable by setting repo variable WARDEN_LIVE_EVALS=1.
+  # Runs only when prompts, agent/model config, actions or eval cases change.
+  live-evals:
+    if: vars.WARDEN_LIVE_EVALS == '1'
+    needs: test
+    runs-on: [self-hosted, warden-gpu]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then base=$(git rev-list --max-parents=0 HEAD | tail -1); fi
+          if git diff --name-only "$base" HEAD | grep -qE '^(prompts/|config/|warden/ontology/|evals/)'; then
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.run == '1'
+        run: |
+          python -m venv .venv && . .venv/bin/activate
+          pip install -r requirements-warden.txt
+          python -m evals.run --mode live --trials 3 --out eval-live.json >> "$GITHUB_STEP_SUMMARY"
+      - if: always() && steps.changed.outputs.run == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-live
+          path: eval-live.json

@@ -1,0 +1,10 @@
+id: purpose-denied
+critical: true
+description: A viewer cannot start the triage agent at all, and never reaches a model.
+agent: triage
+principal: bob
+purpose: incident_response
+input: Quarantine everything.
+expect:
+  status: denied
+  max_tool_calls: 0

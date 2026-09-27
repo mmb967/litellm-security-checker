@@ -43,6 +43,24 @@ Click "Run Full Security Scan" and review the results.
 
 After scanning, you'll see a step-by-step report with a verdict and a downloadable action plan.
 
+## Warden: fleet-wide incident response agents
+
+This repo also contains **Warden** (`warden/`), a local-only agent platform
+that takes the response from one machine to a whole fleet. Agents triage
+findings, open incidents, request credential rotation, quarantine hosts and
+notify owners, using typed business actions, the calling user's permissions
+(role × data marking × purpose), a masking and rate-limiting model gateway,
+swappable local models, cron/webhook/API triggers, evals on every prompt
+change, and a hash-chained audit log with OpenTelemetry traces. No data leaves
+the machine.
+
+See [docs/warden.md](docs/warden.md).
+
+```bash
+pip install -r requirements-warden.txt
+python -m pytest -q && python -m evals.run --mode oracle
+```
+
 ## License
 
 MIT
